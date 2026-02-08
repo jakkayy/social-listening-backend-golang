@@ -8,7 +8,7 @@ import (
 )
 
 func NewDB() *pgxpool.Pool {
-	dsn := "postgrea://sl_user:sl_pass@localhost:5432/social_listening"
+	dsn := "postgres://sl_user:sl_pass@localhost:5433/social_listening"
 	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		log.Fatal(err)
