@@ -1,10 +1,15 @@
-Social Listening Backend (Golang)
+# social-listening-backend-golang
 
-This project focuses on the backend intelligence layer
-for social listening and market insight generation.
+Backend intelligence engine for social listening.
 
-Key Features:
-- Facebook comment ingestion
-- Thai sentiment & intent analysis
-- Insight-driven API (not raw data)
-- Alert & trend detection
+## Features
+- Comment ingestion (mock)
+- Sentiment & intent analysis
+- Insight-driven REST API
+
+## Tech Stack
+- Golang
+- Gin
+
+## API
+GET /api/overview
