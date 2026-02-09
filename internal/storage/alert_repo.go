@@ -50,3 +50,22 @@ func (r *AlertRepository) Latest(ctx context.Context, limit int) ([]Alert, error
 	}
 	return out, nil
 }
+
+func (r *AlertRepository) ExistsRecent(
+	ctx context.Context,
+	alertType string,
+	windowMinutes int,
+) (bool, error) {
+
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM alerts
+			WHERE alert_type = $1
+			  AND created_at >= NOW() - ($2 || ' minutes')::interval
+		)
+	`, alertType, windowMinutes).Scan(&exists)
+
+	return exists, err
+}
