@@ -8,6 +8,7 @@ import (
 	"social-listening-backend-golang/internal/config"
 	"social-listening-backend-golang/internal/domain"
 	"social-listening-backend-golang/internal/ingestion/collector"
+	"social-listening-backend-golang/internal/insight"
 	"social-listening-backend-golang/internal/processing"
 	"social-listening-backend-golang/internal/storage"
 )
@@ -20,6 +21,9 @@ func main() {
 
 	commentRepo := storage.NewCommentRepository(db)
 	analysisRepo := storage.NewAnalysisRepository(db)
+	alertRepo := storage.NewAlertRepository(db)
+
+	prevNegative := 0
 
 	ctx := context.Background()
 
@@ -44,6 +48,22 @@ func main() {
 				log.Println("save analysis error: ", err)
 				continue
 			}
+		}
+
+		var currNegative int
+		row := db.QueryRow(ctx, `
+			SELECT COUNT(*) FROM comment_analysis WHERE sentiment='negative'
+		`)
+		_ = row.Scan(&currNegative)
+
+		change := insight.PercentChange(prevNegative, currNegative)
+
+		if change > 30 {
+			_ = alertRepo.Save(ctx, storage.Alert{
+				Type:        "negative_spike",
+				Message:     "Negative sentiment increased significantly",
+				MetricValue: change,
+			})
 		}
 
 		log.Println("worker sleep 30s")
