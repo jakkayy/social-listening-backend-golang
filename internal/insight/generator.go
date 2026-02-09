@@ -5,9 +5,9 @@ import (
 )
 
 type OverviewInsight struct {
-	Positive int
-	Neutral  int
-	Negative int
+	Positive int `json:"positive"`
+	Neutral  int `json:"neutral"`
+	Negative int `json:"negative"`
 }
 
 func GenerateOverview(analyses []domain.CommentAnalysis) OverviewInsight {
