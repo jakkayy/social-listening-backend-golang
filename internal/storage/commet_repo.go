@@ -18,10 +18,10 @@ func NewCommentRepository(db *pgxpool.Pool) *CommentRepository {
 
 func (r *CommentRepository) Save(ctx context.Context, c domain.Comment) error {
 	_, err := r.db.Exec(ctx,
-		`INSERT INTO comments (id, post_id, message, like_count, create_at)
+		`INSERT INTO comments (id, post_id, message, like_count, created_at)
 		 VALUES ($1, $2, $3, $4, $5)
-		 ON CONFLICT (id) DO RETURNING`,
-		c.ID, c.PostID, c.Message, c.LikeCount, c.CreateAt,
+		 ON CONFLICT (id) DO NOTHING
+		`, c.ID, c.PostID, c.Message, c.LikeCount, c.CreateAt,
 	)
 	return err
 }
