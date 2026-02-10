@@ -1,0 +1,2 @@
+ALTER TABLE comment_analysis
+ADD COLUMN analyzed_at TIMESTAMP NOT NULL DEFAULT NOW();
