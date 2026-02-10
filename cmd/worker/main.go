@@ -1,4 +1,4 @@
-package worker
+package main
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	log.Println("worked start")
+	log.Println("worker start")
 
 	db := config.NewDB()
 	defer db.Close()
@@ -22,49 +22,96 @@ func main() {
 	commentRepo := storage.NewCommentRepository(db)
 	analysisRepo := storage.NewAnalysisRepository(db)
 	alertRepo := storage.NewAlertRepository(db)
-
-	prevNegative := 0
+	trendRepo := storage.NewAnalysisTrendRepository(db)
+	keywordRepo := storage.NewKeywordTrendRepository(db)
+	dailyRepo := storage.NewDailyInsightRepository(db)
 
 	ctx := context.Background()
 
 	for {
-		log.Println("collecting comments ...")
+		log.Println("collecting comments...")
 
 		comments := collector.CollectorMockComments()
 
 		for _, comment := range comments {
-			if err := commentRepo.Save(ctx, comment); err != nil {
-				log.Println("save comment eerror: ", err)
-				continue
-			}
+			_ = commentRepo.Save(ctx, comment)
 
 			analysis := domain.CommentAnalysis{
 				CommentID: comment.ID,
 				Sentiment: domain.Sentiment(processing.AnalizeSentiment(comment.Message)),
 				Intent:    domain.Intent(processing.DetectIntent(comment.Message)),
 			}
+			_ = analysisRepo.Save(ctx, analysis)
+		}
 
-			if err := analysisRepo.Save(ctx, analysis); err != nil {
-				log.Println("save analysis error: ", err)
-				continue
+		currNeg, _ := trendRepo.CountNegativeLastMinutes(ctx, 10)
+		prevNeg, _ := trendRepo.CountNegativePrevWindow(ctx, 20, 10)
+
+		change := insight.PercentChange(prevNeg, currNeg)
+		log.Printf(
+			"negative trend window: prev=%d curr=%d change=%.2f%%",
+			prevNeg, currNeg, change,
+		)
+
+		if change > 30 {
+			exists, _ := alertRepo.ExistsRecent(ctx, "negative_spike", 30)
+			if !exists {
+				_ = alertRepo.Save(ctx, storage.Alert{
+					Type:        "negative_spike",
+					Message:     "Negative sentiment spike detected (10m window)",
+					MetricValue: change,
+				})
+				log.Println("alert saved: negative_spike")
 			}
 		}
 
-		var currNegative int
-		row := db.QueryRow(ctx, `
-			SELECT COUNT(*) FROM comment_analysis WHERE sentiment='negative'
-		`)
-		_ = row.Scan(&currNegative)
+		for _, kw := range insight.Keywords {
 
-		change := insight.PercentChange(prevNegative, currNegative)
+			curr, _ := keywordRepo.CountKeywordLastMinutes(ctx, kw, 10)
+			prev, _ := keywordRepo.CountKeywordPrevWindow(ctx, kw, 20, 10)
 
-		if change > 30 {
-			_ = alertRepo.Save(ctx, storage.Alert{
-				Type:        "negative_spike",
-				Message:     "Negative sentiment increased significantly",
-				MetricValue: change,
-			})
+			change := insight.PercentChange(prev, curr)
+
+			log.Printf(
+				"keyword trend [%s]: prev=%d curr=%d change=%.2f%%",
+				kw, prev, curr, change,
+			)
+
+			if change > 50 {
+				alertType := "keyword_spike:" + kw
+
+				exists, _ := alertRepo.ExistsRecent(ctx, alertType, 30)
+				if !exists {
+					_ = alertRepo.Save(ctx, storage.Alert{
+						Type:        alertType,
+						Message:     "Keyword spike detected: " + kw,
+						MetricValue: change,
+					})
+					log.Println("alert saved:", alertType)
+				}
+			}
 		}
+
+		today := time.Now().Truncate(24 * time.Hour)
+
+		total, _ := storage.CountCommentsToday(ctx, db)
+		pos, _ := storage.CountSentimentToday(ctx, db, "positive")
+		neu, _ := storage.CountSentimentToday(ctx, db, "neutral")
+		neg, _ := storage.CountSentimentToday(ctx, db, "negative")
+		alertsToday, _ := storage.CountAlertsToday(ctx, db)
+		keywords, _ := storage.TopKeywordsToday(ctx, db, 5)
+
+		_ = dailyRepo.Upsert(ctx, storage.DailyInsight{
+			InsightDate:   today,
+			TotalComments: total,
+			PositiveCount: pos,
+			NeutralCount:  neu,
+			NegativeCount: neg,
+			TopKeywords:   keywords,
+			AlertCount:    alertsToday,
+		})
+
+		log.Println("daily insight snapshot upserted")
 
 		log.Println("worker sleep 30s")
 		time.Sleep(30 * time.Second)
