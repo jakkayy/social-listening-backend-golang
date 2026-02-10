@@ -11,5 +11,7 @@ func main() {
 
 	r.GET("/api/overview", handler.OverviewHandler)
 
+	r.GET("/api/alerts", handler.AlertHandler)
+
 	r.Run(":8080")
 }
