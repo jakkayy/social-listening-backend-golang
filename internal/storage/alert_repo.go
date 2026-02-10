@@ -63,7 +63,7 @@ func (r *AlertRepository) ExistsRecent(
 			SELECT 1
 			FROM alerts
 			WHERE alert_type = $1
-			  AND created_at >= NOW() - ($2 || ' minutes')::interval
+			  AND created_at >= NOW() - make_interval(mins => $2)
 		)
 	`, alertType, windowMinutes).Scan(&exists)
 
