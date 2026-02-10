@@ -21,5 +21,19 @@ func CollectorMockComments() []domain.Comment {
 			LikeCount: 34,
 			CreateAt:  time.Now(),
 		},
+		{
+			ID:        "c_keyword_1",
+			PostID:    "p1",
+			Message:   "แพงมาก ไม่โอเคเลย",
+			LikeCount: 3,
+			CreateAt:  time.Now(),
+		},
+		{
+			ID:        "c_keyword_2",
+			PostID:    "p1",
+			Message:   "ช้ามาก บริการแย่",
+			LikeCount: 2,
+			CreateAt:  time.Now(),
+		},
 	}
 }
